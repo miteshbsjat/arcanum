@@ -446,12 +446,15 @@ func main() {
 	secretsGroup := router.Group("/secrets/:user-id")
 	secretsGroup.Use(authMiddleware)
 	{
+		// More specific routes must be registered first to avoid conflicts with the wildcard.
+		secretsGroup.GET("/*key/versions/:version", getSecretByVersion)
+		secretsGroup.GET("/*key/versions", getSecretVersions)
+
+		// The catch-all wildcard routes come last.
 		secretsGroup.POST("/*key", createOrUpdateSecret)
 		secretsGroup.GET("/*key", getSecret)
 		secretsGroup.PUT("/*key", createOrUpdateSecret)
 		secretsGroup.DELETE("/*key", deleteSecret)
-		secretsGroup.GET("/*key/versions", getSecretVersions)
-		secretsGroup.GET("/*key/versions/:version", getSecretByVersion)
 	}
 
 	// Start the server.
