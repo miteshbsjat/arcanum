@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -192,6 +193,7 @@ func authMiddleware(c *gin.Context) {
 // --- HANDLER FUNCTIONS ---
 
 // getSecret retrieves a secret from etcd for a specific user.
+// It can optionally retrieve a historical version via a query parameter.
 func getSecret(c *gin.Context) {
 	userID := c.Param("user-id")
 	keyPath := c.Param("key")
@@ -203,7 +205,26 @@ func getSecret(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	resp, err := etcdClient.Get(ctx, fullKey)
+	// Check for a 'version' query parameter.
+	versionStr := c.Query("version")
+	var revision int64
+	var err error
+	if versionStr != "" {
+		revision, err = strconv.ParseInt(versionStr, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid version format, must be an integer"})
+			return
+		}
+	}
+
+	// Use the revision to fetch a specific version, or get the latest.
+	var resp *clientv3.GetResponse
+	if revision != 0 {
+		resp, err = etcdClient.Get(ctx, fullKey, clientv3.WithRev(revision))
+	} else {
+		resp, err = etcdClient.Get(ctx, fullKey)
+	}
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get secret from etcd"})
 		return
@@ -277,87 +298,6 @@ func deleteSecret(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Secret deleted successfully"})
 }
 
-// getSecretVersions retrieves a list of all historical versions for a user's secret.
-func getSecretVersions(c *gin.Context) {
-	userID := c.Param("user-id")
-	keyPath := c.Param("key")
-	fullKey := fmt.Sprintf("/secrets/%s/%s", userID, keyPath)
-	
-	cfg, _ := tenantKeys.Load(userID)
-	tenantCfg := cfg.(TenantConfig)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	resp, err := etcdClient.Get(ctx, fullKey, clientv3.WithPrefix(), clientv3.WithFromKey())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get secret versions"})
-		return
-	}
-
-	if len(resp.Kvs) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Secret not found or no versions exist"})
-		return
-	}
-
-	versions := make([]gin.H, 0, len(resp.Kvs))
-	for _, kv := range resp.Kvs {
-		decryptedValue, err := decrypt(string(kv.Value), []byte(tenantCfg.EncryptionKey))
-		if err != nil {
-			log.Printf("Failed to decrypt historical version for key %s at revision %d: %v", fullKey, kv.ModRevision, err)
-			continue
-		}
-		versions = append(versions, gin.H{
-			"version": kv.ModRevision,
-			"value":   decryptedValue,
-			"created_at": time.Unix(0, kv.CreateRevision),
-		})
-	}
-	c.JSON(http.StatusOK, versions)
-}
-
-// getSecretByVersion retrieves a specific version of a user's secret.
-func getSecretByVersion(c *gin.Context) {
-	userID := c.Param("user-id")
-	keyPath := c.Param("key")
-	version := c.Param("version")
-	fullKey := fmt.Sprintf("/secrets/%s/%s", userID, keyPath)
-	
-	revision, err := hex.DecodeString(version)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid version format"})
-		return
-	}
-	
-	cfg, _ := tenantKeys.Load(userID)
-	tenantCfg := cfg.(TenantConfig)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	resp, err := etcdClient.Get(ctx, fullKey, clientv3.WithRev(int64(revision[0])))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get secret by version"})
-		return
-	}
-
-	if len(resp.Kvs) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Secret version not found"})
-		return
-	}
-
-	decryptedValue, err := decrypt(string(resp.Kvs[0].Value), []byte(tenantCfg.EncryptionKey))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decrypt secret"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"key":     keyPath,
-		"value":   decryptedValue,
-		"version": resp.Kvs[0].ModRevision,
-	})
-}
-
 // createNamespace creates a new namespace with a unique API key and encryption key.
 func createNamespace(c *gin.Context) {
 	userID := c.Param("user-id")
@@ -392,6 +332,7 @@ func createNamespace(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt tenant config"})
 		return
 	}
+	fmt.Printf("%s\n", userID)
 
 	// Store the encrypted config in etcd.
 	etcdKey := fmt.Sprintf("/namespaces/%s", userID)
@@ -446,10 +387,6 @@ func main() {
 	secretsGroup := router.Group("/secrets/:user-id")
 	secretsGroup.Use(authMiddleware)
 	{
-		// More specific routes must be registered first to avoid conflicts with the wildcard.
-		secretsGroup.GET("/*key/versions/:version", getSecretByVersion)
-		secretsGroup.GET("/*key/versions", getSecretVersions)
-
 		// The catch-all wildcard routes come last.
 		secretsGroup.POST("/*key", createOrUpdateSecret)
 		secretsGroup.GET("/*key", getSecret)
