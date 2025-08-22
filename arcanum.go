@@ -317,7 +317,7 @@ func createNamespace(c *gin.Context) {
 	
 	tenantCfg := TenantConfig{
 		APIKey: hex.EncodeToString(newAPIKey),
-		EncryptionKey: hex.EncodeToString(newEncryptionKey),
+		EncryptionKey: string(newEncryptionKey),
 	}
 	
 	// Marshal and encrypt the new config.
@@ -332,7 +332,6 @@ func createNamespace(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt tenant config"})
 		return
 	}
-	fmt.Printf("%s\n", userID)
 
 	// Store the encrypted config in etcd.
 	etcdKey := fmt.Sprintf("/namespaces/%s", userID)
