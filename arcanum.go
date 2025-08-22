@@ -312,12 +312,12 @@ func createNamespace(c *gin.Context) {
 	// Generate new keys for the tenant.
 	newAPIKey := make([]byte, 16)
 	rand.Read(newAPIKey)
-	newEncryptionKey := make([]byte, 32)
+	newEncryptionKey := make([]byte, 16)
 	rand.Read(newEncryptionKey)
 	
 	tenantCfg := TenantConfig{
 		APIKey: hex.EncodeToString(newAPIKey),
-		EncryptionKey: string(newEncryptionKey),
+		EncryptionKey: hex.EncodeToString(newEncryptionKey),
 	}
 	
 	// Marshal and encrypt the new config.
