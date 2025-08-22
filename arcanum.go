@@ -48,6 +48,11 @@ func panicOnError(err error, msg string) {
 	}
 }
 
+// getEtcdSecretKey constructs the full key path for a secret in etcd.
+func getEtcdSecretKey(userID, keyPath string) string {
+	return fmt.Sprintf("/secrets/%s/%s", userID, keyPath)
+}
+
 // loadMasterKey reads the master key from a local file.
 // In a production environment, this file should be highly secure.
 func loadMasterKey() {
@@ -197,7 +202,7 @@ func authMiddleware(c *gin.Context) {
 func getSecret(c *gin.Context) {
 	userID := c.Param("user-id")
 	keyPath := c.Param("key")
-	fullKey := fmt.Sprintf("/secrets/%s/%s", userID, keyPath)
+	fullKey := getEtcdSecretKey(userID, keyPath)
 
 	cfg, _ := tenantKeys.Load(userID)
 	tenantCfg := cfg.(TenantConfig)
@@ -251,7 +256,7 @@ func getSecret(c *gin.Context) {
 func createOrUpdateSecret(c *gin.Context) {
 	userID := c.Param("user-id")
 	keyPath := c.Param("key")
-	fullKey := fmt.Sprintf("/secrets/%s/%s", userID, keyPath)
+	fullKey := getEtcdSecretKey(userID, keyPath)
 
 	var reqBody struct {
 		Value string `json:"value" binding:"required"`
@@ -284,7 +289,7 @@ func createOrUpdateSecret(c *gin.Context) {
 func deleteSecret(c *gin.Context) {
 	userID := c.Param("user-id")
 	keyPath := c.Param("key")
-	fullKey := fmt.Sprintf("/secrets/%s/%s", userID, keyPath)
+	fullKey := getEtcdSecretKey(userID, keyPath)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -312,7 +317,7 @@ func createNamespace(c *gin.Context) {
 	// Generate new keys for the tenant.
 	newAPIKey := make([]byte, 16)
 	rand.Read(newAPIKey)
-	newEncryptionKey := make([]byte, 16)
+	newEncryptionKey := make([]byte, 32)
 	rand.Read(newEncryptionKey)
 	
 	tenantCfg := TenantConfig{
