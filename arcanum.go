@@ -50,6 +50,9 @@ func panicOnError(err error, msg string) {
 
 // getEtcdSecretKey constructs the full key path for a secret in etcd.
 func getEtcdSecretKey(userID, keyPath string) string {
+	if strings.HasPrefix(keyPath, "/") {
+        keyPath = keyPath[1:] // Remove leading '/'
+    }
 	return fmt.Sprintf("/secrets/%s/%s", userID, keyPath)
 }
 
@@ -399,6 +402,6 @@ func main() {
 	}
 
 	// Start the server.
-	log.Println("Starting API server on :8080...")
-	panicOnError(router.Run(":8080"), "Failed to start server")
+	log.Println("Starting API server on :5305...")
+	panicOnError(router.Run(":5305"), "Failed to start server")
 }
