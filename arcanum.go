@@ -378,6 +378,14 @@ func createNamespace(c *gin.Context) {
 	})
 }
 
+// pingHandler provides a simple health check endpoint.
+func pingHandler(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{
+        "message": "pong",
+        "status_code": "0",
+    })
+}
+
 // --- MAIN FUNCTION ---
 
 func main() {
@@ -406,6 +414,9 @@ func main() {
 
 	// 5. Add the CORS middleware
     router.Use(corsMiddleware())
+
+	// 6. Public endpoint for a simple health check.
+	router.GET("/ping", pingHandler)
 	
 	// Public endpoint for creating new tenants.
 	router.POST("/namespaces/:user-id", createNamespace)

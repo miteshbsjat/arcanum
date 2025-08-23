@@ -254,11 +254,13 @@
         document.getElementById('checkConnectionBtn').addEventListener('click', async (e) => {
             setLoading(e.target, true);
             try {
-                const response = await fetch(API_BASE_URL);
+                // Change the fetch call to the new /ping endpoint
+                const response = await fetch(`${API_BASE_URL}/ping`);
+                const data = await response.json();
                 if (response.ok) {
-                    updateOutput({ message: "Connection successful!", status: response.status });
+                    updateOutput({ message: "Connection successful!", status: response.status, response_data: data });
                 } else {
-                    updateOutput({ error: "Connection failed. Received non-ok status code.", status: response.status });
+                    updateOutput({ error: "Connection failed. Received non-ok status code.", status: response.status, response_data: data });
                 }
             } catch (error) {
                 console.error('Connection Error:', error);
