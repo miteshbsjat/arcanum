@@ -33,9 +33,12 @@
         </div>
 
         <!-- Connection Test Button -->
-        <div class="mb-8">
-            <button id="checkConnectionBtn" class="w-full px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+        <div class="mb-8 flex flex-col sm:flex-row gap-4">
+            <button id="checkConnectionBtn" class="flex-1 px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
                 Check Server Connection
+            </button>
+            <button id="rotateApiKeyBtn" class="flex-1 px-6 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+                Rotate API Key
             </button>
         </div>
 
@@ -265,6 +268,29 @@
             } catch (error) {
                 console.error('Connection Error:', error);
                 updateOutput({ error: "Connection failed. Please ensure the server is running.", details: error.message });
+            }
+            setLoading(e.target, false);
+        });
+        
+        // Handle Rotate API Key request
+        document.getElementById('rotateApiKeyBtn').addEventListener('click', async (e) => {
+            const userId = userIdInput.value;
+            const apiKey = apiKeyInput.value;
+
+            if (!userId || !apiKey) {
+                updateOutput({ error: "User ID and current API Key are required to rotate." });
+                return;
+            }
+
+            setLoading(e.target, true);
+            // Updated path to match the Go server's new endpoint
+            const path = `/namespaces/${userId}/rotate-key`;
+            const headers = { 'X-API-Key': apiKey };
+            const response = await callApi('PUT', path, null, headers);
+            
+            // If the rotation was successful, update the API key input field.
+            if (response && response.new_api_key) {
+                apiKeyInput.value = response.new_api_key;
             }
             setLoading(e.target, false);
         });

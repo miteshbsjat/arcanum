@@ -386,6 +386,52 @@ func pingHandler(c *gin.Context) {
     })
 }
 
+// rotateApiKey handles the PUT request to rotate a user's API key.
+func rotateApiKey(c *gin.Context) {
+	userID := c.Param("user-id")
+
+	// Get the current tenant config from the auth middleware.
+	// tenantCfgValue, exists := c.Get("tenantConfig")
+	// if !exists {
+	// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication failed"})
+	// 	return
+	// }
+	cfg, exists := tenantKeys.Load(userID)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication failed"})
+		return
+	}
+	currentTenantCfg := cfg.(TenantConfig)
+
+	// Generate a new 16-byte API key.
+	apiKeyBytes := make([]byte, 16)
+	_, err := rand.Read(apiKeyBytes)
+	panicOnError(err, "Failed to generate new API key")
+	newApiKey := hex.EncodeToString(apiKeyBytes)
+
+	// Create a new tenant config with the new API key, keeping the old encryption key.
+	newTenantCfg := TenantConfig{
+		APIKey:        newApiKey,
+		EncryptionKey: currentTenantCfg.EncryptionKey,
+	}
+
+	// Marshal and save the new config to etcd.
+	tenantConfigJSON, err := json.Marshal(newTenantCfg)
+	panicOnError(err, "Failed to marshal new tenant config")
+	key := "/namespaces/" + userID
+	_, err = etcdClient.Put(context.Background(), key, string(tenantConfigJSON))
+	panicOnError(err, "Failed to save new tenant key to etcd")
+
+	// Update the in-memory map.
+	tenantKeys.Store(userID, newTenantCfg)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":      "API key rotated successfully",
+		"user_id":      userID,
+		"new_api_key": newTenantCfg.APIKey,
+	})
+}
+
 // --- MAIN FUNCTION ---
 
 func main() {
@@ -420,6 +466,8 @@ func main() {
 	
 	// Public endpoint for creating new tenants.
 	router.POST("/namespaces/:user-id", createNamespace)
+	// New endpoint for API key rotation, protected by authMiddleware
+	router.PUT("/namespaces/:user-id/rotate-key", rotateApiKey) // New endpoint for API key rotation
 
 	// API endpoints for secrets, protected by authMiddleware.
 	secretsGroup := router.Group("/secrets/:user-id")
