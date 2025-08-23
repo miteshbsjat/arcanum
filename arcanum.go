@@ -198,6 +198,23 @@ func authMiddleware(c *gin.Context) {
 	c.Next()
 }
 
+// A simple CORS middleware for Gin.
+func corsMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+        c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+        c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+        c.Writer.Header().Set("Access-Control-Max-Age", "86400")
+
+        if c.Request.Method == "OPTIONS" {
+            c.AbortWithStatus(http.StatusNoContent)
+            return
+        }
+
+        c.Next()
+    }
+}
+
 // --- HANDLER FUNCTIONS ---
 
 // getSecret retrieves a secret from etcd for a specific user.
@@ -386,6 +403,9 @@ func main() {
 	
 	// 4. Create a Gin router.
 	router := gin.Default()
+
+	// 5. Add the CORS middleware
+    router.Use(corsMiddleware())
 	
 	// Public endpoint for creating new tenants.
 	router.POST("/namespaces/:user-id", createNamespace)

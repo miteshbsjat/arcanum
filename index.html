@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secrets Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="p-8 flex items-center justify-center min-h-screen">
+    <div class="bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-center text-white">Secrets Manager Frontend</h1>
+        
+        <!-- API Configuration -->
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <div>
+                <label for="apiKey" class="block text-sm font-medium text-gray-400 mb-1">API Key</label>
+                <input type="password" id="apiKey" class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-500 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+            </div>
+            <div>
+                <label for="userId" class="block text-sm font-medium text-gray-400 mb-1">User ID</label>
+                <input type="text" id="userId" value="mitesh" class="w-full p-2 rounded-lg bg-gray-700 text-white placeholder-gray-500 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+            </div>
+        </div>
+
+        <!-- Connection Test Button -->
+        <div class="mb-8">
+            <button id="checkConnectionBtn" class="w-full px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+                Check Server Connection
+            </button>
+        </div>
+
+        <!-- Namespace Management -->
+        <div class="bg-gray-700 p-6 rounded-xl mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-white">Namespace Management</h2>
+            <div class="flex flex-col sm:flex-row gap-4 items-end">
+                <div class="flex-grow w-full">
+                    <label for="newUserId" class="block text-sm font-medium text-gray-400 mb-1">New User ID</label>
+                    <input type="text" id="newUserId" placeholder="e.g., reenu" class="w-full p-2 rounded-lg bg-gray-800 text-white placeholder-gray-500 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                <button id="createNamespaceBtn" class="w-full sm:w-auto px-6 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+                    Create Namespace
+                </button>
+            </div>
+        </div>
+
+        <!-- Secret Management -->
+        <div class="bg-gray-700 p-6 rounded-xl mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-white">Secret Management</h2>
+            <div class="grid md:grid-cols-3 gap-6 mb-4">
+                <div class="md:col-span-2">
+                    <label for="keyPath" class="block text-sm font-medium text-gray-400 mb-1">Key Path</label>
+                    <input type="text" id="keyPath" value="conf/env/svc/v1/test" class="w-full p-2 rounded-lg bg-gray-800 text-white placeholder-gray-500 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                <div>
+                    <label for="version" class="block text-sm font-medium text-gray-400 mb-1">Version (Optional)</label>
+                    <input type="text" id="version" placeholder="e.g., 19" class="w-full p-2 rounded-lg bg-gray-800 text-white placeholder-gray-500 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label for="secretValue" class="block text-sm font-medium text-gray-400 mb-1">Secret Value (for POST/PUT)</label>
+                <textarea id="secretValue" rows="3" placeholder="e.g., test-value6" class="w-full p-2 rounded-lg bg-gray-800 text-white placeholder-gray-500 border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-4">
+                <button id="getSecretBtn" class="flex-1 min-w-[100px] px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+                    GET
+                </button>
+                <button id="postSecretBtn" class="flex-1 min-w-[100px] px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+                    POST
+                </button>
+                <button id="putSecretBtn" class="flex-1 min-w-[100px] px-6 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+                    PUT
+                </button>
+                <button id="deleteSecretBtn" class="flex-1 min-w-[100px] px-6 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition duration-200 ease-in-out shadow-md">
+                    DELETE
+                </button>
+            </div>
+        </div>
+
+        <!-- Output Console -->
+        <div>
+            <h2 class="text-xl font-semibold mb-2 text-white">API Response</h2>
+            <pre id="output" class="bg-gray-900 p-4 rounded-xl overflow-x-auto text-sm text-gray-300 border border-gray-700">Waiting for a request...</pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5305';
+
+        const apiKeyInput = document.getElementById('apiKey');
+        const userIdInput = document.getElementById('userId');
+        const newUserIdInput = document.getElementById('newUserId');
+        const keyPathInput = document.getElementById('keyPath');
+        const versionInput = document.getElementById('version');
+        const secretValueInput = document.getElementById('secretValue');
+        const outputPre = document.getElementById('output');
+        const buttons = document.querySelectorAll('button');
+
+        // Function to set loading state on a button
+        function setLoading(button, isLoading) {
+            button.disabled = isLoading;
+            if (isLoading) {
+                button.innerHTML = 'Loading...';
+                button.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                button.innerHTML = button.dataset.originalText;
+                button.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        // Store original button text
+        buttons.forEach(btn => btn.dataset.originalText = btn.innerHTML);
+
+        // Helper function to update the output console
+        function updateOutput(data) {
+            outputPre.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Helper function for API calls
+        async function callApi(method, path, body = null, headers = {}) {
+            const url = `${API_BASE_URL}${path}`;
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...headers,
+                },
+            };
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            try {
+                const response = await fetch(url, options);
+                const data = await response.json();
+                if (!response.ok) {
+                    const error = new Error(data.error || response.statusText);
+                    error.status = response.status;
+                    throw error;
+                }
+                updateOutput(data);
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                updateOutput({ 
+                    error: error.message, 
+                    status: error.status || 'Network Error', 
+                    details: 'Failed to fetch. Check server console for more info.' 
+                });
+            }
+        }
+
+        // --- HANDLER FUNCTIONS ---
+
+        // Handle GET Secret request
+        document.getElementById('getSecretBtn').addEventListener('click', async (e) => {
+            const userId = userIdInput.value;
+            const keyPath = keyPathInput.value;
+            const apiKey = apiKeyInput.value;
+            const version = versionInput.value;
+
+            if (!userId || !keyPath || !apiKey) {
+                updateOutput({ error: "User ID, Key Path, and API Key are required for GET." });
+                return;
+            }
+
+            setLoading(e.target, true);
+            const path = `/secrets/${userId}/${keyPath}`;
+            const headers = { 'X-API-Key': apiKey };
+            const versionQuery = version ? `?version=${version}` : '';
+            await callApi('GET', `${path}${versionQuery}`, null, headers);
+            setLoading(e.target, false);
+        });
+
+        // Handle POST/PUT Secret request
+        document.getElementById('postSecretBtn').addEventListener('click', async (e) => {
+            const userId = userIdInput.value;
+            const keyPath = keyPathInput.value;
+            const apiKey = apiKeyInput.value;
+            const value = secretValueInput.value;
+
+            if (!userId || !keyPath || !apiKey || !value) {
+                updateOutput({ error: "User ID, Key Path, API Key, and Secret Value are required for POST/PUT." });
+                return;
+            }
+
+            setLoading(e.target, true);
+            const path = `/secrets/${userId}/${keyPath}`;
+            const headers = { 'X-API-Key': apiKey };
+            await callApi('POST', path, { value: value }, headers);
+            setLoading(e.target, false);
+        });
+        
+        document.getElementById('putSecretBtn').addEventListener('click', async (e) => {
+            const userId = userIdInput.value;
+            const keyPath = keyPathInput.value;
+            const apiKey = apiKeyInput.value;
+            const value = secretValueInput.value;
+
+            if (!userId || !keyPath || !apiKey || !value) {
+                updateOutput({ error: "User ID, Key Path, API Key, and Secret Value are required for POST/PUT." });
+                return;
+            }
+
+            setLoading(e.target, true);
+            const path = `/secrets/${userId}/${keyPath}`;
+            const headers = { 'X-API-Key': apiKey };
+            await callApi('PUT', path, { value: value }, headers);
+            setLoading(e.target, false);
+        });
+
+        // Handle DELETE Secret request
+        document.getElementById('deleteSecretBtn').addEventListener('click', async (e) => {
+            const userId = userIdInput.value;
+            const keyPath = keyPathInput.value;
+            const apiKey = apiKeyInput.value;
+
+            if (!userId || !keyPath || !apiKey) {
+                updateOutput({ error: "User ID, Key Path, and API Key are required for DELETE." });
+                return;
+            }
+
+            setLoading(e.target, true);
+            const path = `/secrets/${userId}/${keyPath}`;
+            const headers = { 'X-API-Key': apiKey };
+            await callApi('DELETE', path, null, headers);
+            setLoading(e.target, false);
+        });
+
+        // Handle Create Namespace request
+        document.getElementById('createNamespaceBtn').addEventListener('click', async (e) => {
+            const newUserId = newUserIdInput.value;
+
+            if (!newUserId) {
+                updateOutput({ error: "New User ID is required to create a namespace." });
+                return;
+            }
+
+            setLoading(e.target, true);
+            const path = `/namespaces/${newUserId}`;
+            await callApi('POST', path);
+            setLoading(e.target, false);
+        });
+
+        // Handle Check Connection request
+        document.getElementById('checkConnectionBtn').addEventListener('click', async (e) => {
+            setLoading(e.target, true);
+            try {
+                const response = await fetch(API_BASE_URL);
+                if (response.ok) {
+                    updateOutput({ message: "Connection successful!", status: response.status });
+                } else {
+                    updateOutput({ error: "Connection failed. Received non-ok status code.", status: response.status });
+                }
+            } catch (error) {
+                console.error('Connection Error:', error);
+                updateOutput({ error: "Connection failed. Please ensure the server is running.", details: error.message });
+            }
+            setLoading(e.target, false);
+        });
+    </script>
+</body>
+</html>
