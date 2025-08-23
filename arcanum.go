@@ -415,12 +415,28 @@ func rotateApiKey(c *gin.Context) {
 		EncryptionKey: currentTenantCfg.EncryptionKey,
 	}
 
-	// Marshal and save the new config to etcd.
-	tenantConfigJSON, err := json.Marshal(newTenantCfg)
-	panicOnError(err, "Failed to marshal new tenant config")
-	key := "/namespaces/" + userID
-	_, err = etcdClient.Put(context.Background(), key, string(tenantConfigJSON))
-	panicOnError(err, "Failed to save new tenant key to etcd")
+	// Marshal and encrypt the new config.
+	cfgJSON, err := json.Marshal(newTenantCfg)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal tenant config"})
+		return
+	}
+	
+	encryptedCfg, err := encrypt(string(cfgJSON), masterKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to encrypt tenant config"})
+		return
+	}
+
+	// Store the encrypted config in etcd.
+	etcdKey := fmt.Sprintf("/namespaces/%s", userID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err = etcdClient.Put(ctx, etcdKey, encryptedCfg)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store tenant config in etcd"})
+		return
+	}
 
 	// Update the in-memory map.
 	tenantKeys.Store(userID, newTenantCfg)
