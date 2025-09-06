@@ -2,7 +2,7 @@
 
 ## Meaning of `arcanum`
 
-    `arcanum` means `secret` in Latin/Sanskrit/Hindi. `arcanum` stores secrets in `etcd` after encryption. This is 3-tier scalable architecture to keep configurations and secrets in etcd.
+`arcanum` means `secret` in Latin/Sanskrit/Hindi. `arcanum` stores secrets in `etcd` after encryption. This is 3-tier scalable architecture to keep configurations and secrets in etcd.
 
 "Arcanum" का हिंदी में अर्थ " रहस्य " या " भेद " है। इसका मतलब है कोई गुप्त, छिपा हुआ या रहस्यमय बात जो हर किसी को पता नहीं होती है। इसे "गुह्य ज्ञान" या "गुप्त रहस्य" भी कहा जा सकता है। [1, 2, 3, 4]  
 उदाहरण के लिए, "The ancient book was filled with arcanum" का हिंदी में अर्थ होगा "प्राचीन पुस्तक रहस्यों से भरी हुई थी". [3, 5]  
